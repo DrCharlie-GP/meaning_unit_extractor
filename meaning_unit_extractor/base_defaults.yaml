@@ -1,0 +1,88 @@
+# base_defaults.yaml
+# 研究级常量与全局默认参数，发行时冻结。
+# 脚本运行时可被推断层（detected_config）或用户 --override 覆盖。
+# 每个字段在 config_snapshot.yaml 中会记录来源：default / detected / user_override / study_constant。
+
+meta:
+  tool_name: meaning_unit_extractor
+  tool_version: 0.1.0
+  schema_version: 1
+
+# ---- 切分相关（部分可被推断层调整）----
+segmentation:
+  min_length: 15              # study_constant — 意义单元最小字符，方法论决定
+  max_length: 90              # 默认；若文件的小句长度分布 95 百分位超过，推断层会上调
+  hard_max_length: 150        # 推断上调的上限
+  strong_terminators: ["。", "！", "？"]
+  weak_terminators: ["，"]    # 故意不含「；」—— 这批 ASR 不产出分号
+
+discourse_markers:
+  continuation: ["然后", "所以", "因为", "而且", "就是", "也就是说", "包括", "接着", "另外", "还有"]
+  contrast: ["但是", "然而", "不过", "反过来", "相反", "可是", "却"]
+
+backchannel:
+  enabled: true
+  max_chars: 10
+  words: ["明白", "对", "好", "是", "嗯", "了解", "好的", "行", "OK", "ok", "嗯嗯", "哦", "啊", "对对"]
+
+asr_noise:
+  english_char_ratio_threshold: 0.6   # 单小句英文字符比超此值且较短，判为噪声
+  english_max_length: 20
+  global_english_ratio_flag: 0.01     # 全文英文比超此值时启用过滤
+  enabled: auto                        # auto / on / off
+
+vignette:
+  trigger_terms: ["情境", "情景", "案例", "我读一下", "这里有个", "我简单读", "我先读"]
+  min_chars: 200
+  enabled: auto                        # auto — 根据文件内容是否命中触发词自动决定
+
+same_speaker_merge:
+  enabled: true
+  default_gap_seconds: 120            # 无时间戳或推断失败时的兜底
+  merge_across_backchannel: true
+
+semantic_refine:
+  enabled: false                       # 默认关闭，避免强制依赖嵌入模型
+  model: "shibing624/text2vec-base-chinese"
+  similarity_threshold: 0.72
+  # 此项为 study_constant — 若启用后用户修改，快照会标注警告
+
+# ---- 已知访谈员名单（格式 A 姓名标签的确定性角色分配）----
+# 若您使用固定的访谈员，可在此列出姓名；命中的姓名在格式 A 中会直接定为 interviewer。
+# 不命中的说话人通过启发式评分或 LLM 复核识别角色。
+# 示例（请替换为您实际研究中的访谈员姓名）：
+known_interviewer_names: []
+  # - 李明
+
+# ---- 参数推断层 ----
+inference:
+  llm_assist: auto                    # auto / forced / disabled
+  llm_confidence_threshold: 0.7       # LLM 低于此值则回退到启发式
+  speaker_role:
+    # 启发式评分权重（三者和为 1）
+    question_mark_weight: 0.5
+    length_weight: 0.3
+    total_chars_weight: 0.2
+
+# ---- 输出 ----
+output:
+  formats: [csv, jsonl]               # canonical_turns.jsonl 另外固定产出
+  include_context_window: 1           # 意义单元输出时附带的前后上下文数量
+  refi_qda_compatible: true
+
+# ---- 命题识别（LLM 驱动）----
+proposition:
+  enabled: auto                        # auto：当 LLM 可用时启用
+  target_roles:                        # 仅对这些角色的轮次做命题识别
+    - primary_informant
+    - family_member
+    - patient
+    - other_participant
+  skip_flags:                          # 轮次含这些 flag 时跳过
+    - asr_noise_suspect
+    - vignette_reading
+    - bridged_by_merge
+  min_turn_length: 20                  # 过短的轮次直接跳过（如纯应答）
+  max_propositions_per_turn: 10
+  confidence_threshold: 0.5            # 低于此值的命题仍保留但打低置信度标
+  verify_char_range: true              # 独立验证 LLM 返回的字符区间

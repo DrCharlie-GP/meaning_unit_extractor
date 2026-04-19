@@ -1,0 +1,83 @@
+# llm_config.example.yaml
+# 复制为 llm_config.yaml 后修改。API 密钥建议通过环境变量传入，避免入库。
+#
+# 支持两种协议类型：
+#   - openai_compatible：OpenAI 兼容接口（/v1/chat/completions），国内外多数厂商已兼容
+#   - anthropic：Anthropic Messages API（/v1/messages）
+#
+# 切换厂商只需修改 active_provider 指向 providers 下的任一键。
+
+active_provider: deepseek    # 运行时指定当前使用的厂商
+
+# 全局行为参数（可被 provider 覆盖）
+defaults:
+  temperature: 0.0            # 参数推断任务要求确定性，统一 0
+  max_tokens: 2000
+  timeout_seconds: 60
+  max_retries: 2
+  retry_backoff_seconds: 2
+
+# 调用模式：
+#   - disabled：不调用 LLM，脚本走纯启发式路径
+#   - mock：使用内置 mock 响应（离线测试用）
+#   - live：真实调用 active_provider 指向的厂商
+mode: live
+
+providers:
+
+  # ============ OpenAI 兼容协议 ============
+  openai:
+    type: openai_compatible
+    base_url: https://api.openai.com/v1
+    api_key_env: OPENAI_API_KEY
+    model: gpt-4o-mini
+
+  anthropic:
+    type: anthropic
+    base_url: https://api.anthropic.com/v1
+    api_key_env: ANTHROPIC_API_KEY
+    model: claude-sonnet-4-5-20250929
+    anthropic_version: "2023-06-01"
+
+  deepseek:
+    type: openai_compatible
+    base_url: https://api.deepseek.com/v1
+    api_key_env: DEEPSEEK_API_KEY
+    model: deepseek-chat
+
+  qwen:                        # 阿里通义千问（DashScope OpenAI 兼容模式）
+    type: openai_compatible
+    base_url: https://dashscope.aliyuncs.com/compatible-mode/v1
+    api_key_env: DASHSCOPE_API_KEY
+    model: qwen-plus
+
+  zhipu:                       # 智谱 GLM
+    type: openai_compatible
+    base_url: https://open.bigmodel.cn/api/paas/v4
+    api_key_env: ZHIPU_API_KEY
+    model: glm-4-plus
+
+  kimi:                        # 月之暗面
+    type: openai_compatible
+    base_url: https://api.moonshot.cn/v1
+    api_key_env: MOONSHOT_API_KEY
+    model: moonshot-v1-8k
+
+  doubao:                      # 字节豆包
+    type: openai_compatible
+    base_url: https://ark.cn-beijing.volces.com/api/v3
+    api_key_env: ARK_API_KEY
+    model: doubao-pro-32k      # 用户请根据实际接入点替换
+
+  ernie:                       # 百度文心（注意：百度需转用 OpenAI 兼容网关）
+    type: openai_compatible
+    base_url: https://qianfan.baidubce.com/v2
+    api_key_env: QIANFAN_API_KEY
+    model: ernie-4.0-turbo-8k
+
+  # 本地/自托管（例如 vLLM, Ollama 的 OpenAI 兼容端点）
+  local:
+    type: openai_compatible
+    base_url: http://localhost:8000/v1
+    api_key_env: LOCAL_API_KEY   # 本地服务通常无需 key，env 缺失时自动传空
+    model: qwen2.5-7b-instruct
